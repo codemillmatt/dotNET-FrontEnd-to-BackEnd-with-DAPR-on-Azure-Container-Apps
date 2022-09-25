@@ -1,5 +1,6 @@
 using Dapr;
 using Dapr.Client;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,6 +11,9 @@ builder.Services.AddDaprClient();
 builder.Services.AddApplicationMonitoring();
 
 var app = builder.Build();
+
+app.UseCloudEvents();
+app.MapSubscribeHandler();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -36,9 +40,9 @@ app.MapGet("/inventory/{productId}", (string productId, IMemoryCache memoryCache
 .Produces<int>(StatusCodes.Status200OK)
 .WithName("GetInventoryCount");
 
-app.MapDelete("/inventory/{productId}", (string productId, IMemoryCache memoryCache, DaprClient daprClient) =>
+app.MapPost("/inventory/delete", (IMemoryCache memoryCache, Product data) =>
 {
-    var memCacheKey = $"{productId}-inventory";
+    var memCacheKey = $"{data.ProductId}-inventory";
     int inventoryValue = -404;
 
     if (!memoryCache.TryGetValue(memCacheKey, out inventoryValue))
@@ -55,7 +59,13 @@ app.MapDelete("/inventory/{productId}", (string productId, IMemoryCache memoryCa
 })
 .Produces<int>(StatusCodes.Status200OK)
 .Produces(StatusCodes.Status404NotFound)
-.WithTopic("pubsub","deleteInventory")
+.WithTopic("pubsub", "deleteInventory")
 .WithName("DeleteInventory");
 
 app.Run();
+
+public class Product
+{
+    public Guid ProductId { get; set; }
+    public string ProductName { get; set; }
+}

@@ -1,16 +1,8 @@
 version: '3.4'
 
 services:
-  store.inventoryapi:
-    image: ${DOCKER_REGISTRY-}storeinventoryapi
-    build:
-      context: .
-      dockerfile: Store.InventoryApi/Dockerfile
-    ports:
-      - "52000:50001"
-
   store.productapi:
-    image: ${DOCKER_REGISTRY-}storproductapi
+    image: ${DOCKER_REGISTRY-}storeproductapi
     build:
       context: .
       dockerfile: Store.ProductApi/Dockerfile
@@ -19,7 +11,22 @@ services:
 
   store.productapi-dapr:
     image: "daprio/daprd:latest"
-    command: [ "./daprd", "-app-id", "Products", "-app-port", "80" ]
+    command: [ "./daprd", "-app-id", "products", "-app-port", "80" ]
     depends_on:
       - store.productapi
     network_mode: "service:store.productapi"
+
+  store.inventoryapi:
+    image: ${DOCKER_REGISTRY-}storeinventoryapi
+    build:
+      context: .
+      dockerfile: Store.InventoryApi/Dockerfile
+    ports:
+      - "52000:50001"
+
+  store.inventoryapi-dapr:
+    image: "daprio/daprd:latest"
+    command: [ "./daprd", "-app-id", "products", "-app-port", "80" ]
+    depends_on:
+      - store.inventoryapi
+    network_mode: "service:store.inventoryapi"
