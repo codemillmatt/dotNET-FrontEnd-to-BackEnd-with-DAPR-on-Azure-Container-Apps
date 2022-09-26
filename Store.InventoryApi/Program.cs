@@ -1,12 +1,12 @@
 using Dapr;
 using Dapr.Client;
+using Microsoft.ApplicationInsights.Channel;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddMemoryCache(); // we'll use cache to simulate storage
 builder.Services.AddDaprClient();
 builder.Services.AddApplicationMonitoring();
 
@@ -22,39 +22,38 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.MapGet("/inventory/{productId}", (string productId, IMemoryCache memoryCache) =>
+app.MapGet("/inventory/{productId}", async (string productId, IMemoryCache memoryCache, DaprClient client) =>
 {
     var memCacheKey = $"{productId}-inventory";
     int inventoryValue = -404;
 
-    if (!memoryCache.TryGetValue(memCacheKey, out inventoryValue))
+    inventoryValue = await client.GetStateAsync<int>("state", memCacheKey);
+
+    if (inventoryValue == 0)
     {
         inventoryValue = new Random().Next(1, 100);
-        memoryCache.Set(memCacheKey, inventoryValue);
+        await client.SaveStateAsync("state", memCacheKey, inventoryValue);
     }
-
-    inventoryValue = memoryCache.Get<int>(memCacheKey);
 
     return Results.Ok(inventoryValue);
 })
 .Produces<int>(StatusCodes.Status200OK)
 .WithName("GetInventoryCount");
 
-app.MapPost("/inventory/delete", (IMemoryCache memoryCache, Product data) =>
+app.MapPost("/inventory/delete", async (DaprClient client, Product data) =>
 {
     var memCacheKey = $"{data.ProductId}-inventory";
     int inventoryValue = -404;
 
-    if (!memoryCache.TryGetValue(memCacheKey, out inventoryValue))
-    {
-        return Results.NotFound();
-    }
+    inventoryValue = await client.GetStateAsync<int>("state", memCacheKey);
 
-    // remove all the inventory
-    inventoryValue = 0;
+    if (inventoryValue == 0)
+        return Results.NotFound($"nothing in the cache for {memCacheKey}");
 
-    memoryCache.Set(memCacheKey, inventoryValue);
+    inventoryValue = -404;
 
+    await client.SaveStateAsync("state", memCacheKey, inventoryValue);
+    
     return Results.Ok(inventoryValue);
 })
 .Produces<int>(StatusCodes.Status200OK)
