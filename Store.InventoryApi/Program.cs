@@ -2,7 +2,6 @@ using Dapr;
 using Dapr.Client;
 using Microsoft.ApplicationInsights.Channel;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Caching.Memory;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
@@ -22,7 +21,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.MapGet("/inventory/{productId}", async (string productId, IMemoryCache memoryCache, DaprClient client) =>
+app.MapGet("/inventory/{productId}", async (string productId, DaprClient client) =>
 {
     var memCacheKey = $"{productId}-inventory";
     int inventoryValue = -404;
@@ -40,7 +39,7 @@ app.MapGet("/inventory/{productId}", async (string productId, IMemoryCache memor
 .Produces<int>(StatusCodes.Status200OK)
 .WithName("GetInventoryCount");
 
-app.MapPost("/inventory/delete", async (DaprClient client, Product data) =>
+app.MapPost("/inventory/delete", async (DaprClient client, [FromBody]Product data) =>
 {
     var memCacheKey = $"{data.ProductId}-inventory";
     int inventoryValue = -404;
